@@ -1,5 +1,5 @@
 from .config import DATA_DIR, TOP_K
-
+from .keyword_search import KeywordSearch
 from .chunker import get_text_splitter
 from .parser import create_directories, process_pdf
 from .embeddings import EmbeddingService
@@ -13,11 +13,21 @@ class RAGPipeline:
 
         self.pdf_path = pdf_path
 
-        create_directories(
-            DATA_DIR
-        )
+        # -------------------------
+        # Create required directories
+        # -------------------------
+
+        create_directories(DATA_DIR)
+
+        # -------------------------
+        # Initialize text splitter
+        # -------------------------
 
         splitter = get_text_splitter()
+
+        # -------------------------
+        # Process PDF
+        # -------------------------
 
         print("Loading PDF...")
 
@@ -31,18 +41,27 @@ class RAGPipeline:
             f"Extracted {len(self.items)} items."
         )
 
+        # -------------------------
+        # Initialize embeddings
+        # -------------------------
+
         print("Loading embedding model...")
 
-        self.embedding_service = (
-            EmbeddingService()
-        )
+        self.embedding_service = EmbeddingService()
+
+        # -------------------------
+        # Generate embeddings
+        # -------------------------
 
         print("Generating embeddings...")
 
-        self.items = (
-            self.embedding_service
-            .embed_items(self.items)
+        self.items = self.embedding_service.embed_items(
+            self.items
         )
+
+        # -------------------------
+        # Build FAISS index
+        # -------------------------
 
         print("Building FAISS index...")
 
@@ -57,29 +76,116 @@ class RAGPipeline:
             f"{self.vector_store.index.ntotal} vectors."
         )
 
+        # -------------------------
+        # Initialize BM25
+        # -------------------------
+
+        print("Building keyword search index...")
+
+        self.keyword_search = KeywordSearch(
+            self.items
+        )
+
+        print("Keyword search index ready.")
+
+        # -------------------------
+        # Initialize LLM generator
+        # -------------------------
+
+        print("Initializing generator...")
+
         self.generator = Generator()
+
+        print("RAG pipeline ready.")
 
     def ask(self, question):
 
-        query_embedding = (
-            self.embedding_service
-            .embed(question)
+        # -------------------------
+        # Generate query embedding
+        # -------------------------
+
+        query_embedding = self.embedding_service.embed(
+            question
         )
 
-        matched_items = (
-            self.vector_store
-            .search(
-                query_embedding,
-                TOP_K
-            )
+        # -------------------------
+        # Semantic Search - FAISS
+        # -------------------------
+
+        semantic_results = self.vector_store.search(
+            query_embedding,
+            TOP_K
         )
+
+        # -------------------------
+        # Keyword Search - BM25
+        # -------------------------
+
+        keyword_results = self.keyword_search.search(
+            question,
+            TOP_K
+        )
+
+        # -------------------------
+        # Display Semantic Results
+        # -------------------------
+
+        print("\n--- Semantic Results (FAISS) ---")
+
+        for i, item in enumerate(
+            semantic_results,
+            start=1
+        ):
+
+            print(
+                f"\n{i}. Page {item['page']}"
+            )
+
+            print(
+                item["text"][:150]
+            )
+
+        # -------------------------
+        # Display Keyword Results
+        # -------------------------
+
+        print("\n--- Keyword Results (BM25) ---")
+
+        for i, item in enumerate(
+            keyword_results,
+            start=1
+        ):
+
+            print(
+                f"\n{i}. Page {item['page']} "
+                f"| Score: {item['keyword_score']:.2f}"
+            )
+
+            print(
+                item["text"][:150]
+            )
+
+        # -------------------------
+        # Current RAG generation
+        # -------------------------
+        #
+        # For Day 2, we are still
+        # using FAISS results for
+        # the final answer.
+        #
+        # We will combine FAISS +
+        # BM25 results after verifying
+        # both retrieval methods.
+        # -------------------------
 
         print(
-            f"Retrieved "
-            f"{len(matched_items)} chunks."
+            f"\nUsing {len(semantic_results)} "
+            f"semantic results for generation."
         )
 
-        return self.generator.generate(
+        answer = self.generator.generate(
             question,
-            matched_items
+            semantic_results
         )
+
+        return answer
