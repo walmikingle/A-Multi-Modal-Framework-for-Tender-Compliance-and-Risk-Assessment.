@@ -1,12 +1,9 @@
-import os
+﻿import os
 import base64
 import re
 import hashlib
 
 import pymupdf
-
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
 
 def create_directories(base_dir):
     """
@@ -378,10 +375,7 @@ def process_pdf_docling(
     Images are handled by PyMuPDF.
     """
 
-    from docling_core.types.doc import (
-    TextItem,
-    TableItem
-)
+    from docling_core.types.doc import TextItem
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import (
         DocumentConverter,
@@ -445,7 +439,7 @@ def process_pdf_docling(
 
     page_text = {}
 
-    for item, level in (
+    for item, _ in (
         document.iterate_items()
     ):
 
@@ -650,3 +644,6 @@ def process_pdf(
         f"Unsupported parser: {parser}. "
         f"Use 'docling' or 'pymupdf'."
     )
+
+
+

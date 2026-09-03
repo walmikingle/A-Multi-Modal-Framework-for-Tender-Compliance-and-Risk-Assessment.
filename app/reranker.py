@@ -1,13 +1,14 @@
-import re
-from .config import RERANKER_MODEL
+﻿import re
+
 import torch
 from sentence_transformers import CrossEncoder
+
+from .config import RERANKER_MODEL
 
 
 class Reranker:
 
     def __init__(self):
-
         print("Loading re-ranker model...")
 
         device = (
@@ -17,12 +18,10 @@ class Reranker:
         )
 
         self.model = CrossEncoder(
-    RERANKER_MODEL,
+            RERANKER_MODEL,
             device=device,
-            max_length=512
+            max_length=512,
         )
-
-        self.device = device
 
         print(
             f"Re-ranker ready. Device: {device}"
@@ -30,19 +29,17 @@ class Reranker:
 
     @staticmethod
     def _normalize(text):
-
         return re.sub(
             r"\s+",
             " ",
-            text.lower()
+            text.lower(),
         ).strip()
 
     @staticmethod
     def _query_terms(query):
-
         words = re.findall(
             r"\b[a-zA-Z0-9€$%]+\b",
-            query.lower()
+            query.lower(),
         )
 
         stopwords = {
@@ -85,9 +82,8 @@ class Reranker:
     def _evidence_score(
         self,
         query,
-        text
+        text,
     ):
-
         query_normalized = self._normalize(
             query
         )
@@ -116,8 +112,6 @@ class Reranker:
 
         score = term_coverage * 2.0
 
-        # Strong boost for named entities
-        # or unusually specific terms.
         specific_terms = [
             term
             for term in query_terms
@@ -126,18 +120,15 @@ class Reranker:
         ]
 
         for term in specific_terms:
-
             if term in text_normalized:
                 score += 0.5
 
-        # Preserve exact numeric evidence.
         query_numbers = re.findall(
             r"\d+(?:[.,]\d+)*",
-            query_normalized
+            query_normalized,
         )
 
         for number in query_numbers:
-
             if number in text_normalized:
                 score += 1.0
 
@@ -147,9 +138,8 @@ class Reranker:
         self,
         query,
         items,
-        top_k=5
+        top_k=5,
     ):
-
         if not items:
             return []
 
@@ -165,7 +155,7 @@ class Reranker:
         pairs = [
             [
                 query,
-                item["text"]
+                item["text"],
             ]
             for item in valid_items
         ]
@@ -173,20 +163,19 @@ class Reranker:
         model_scores = self.model.predict(
             pairs,
             batch_size=16,
-            show_progress_bar=False
+            show_progress_bar=False,
         )
 
         scored_items = []
 
         for item, model_score in zip(
             valid_items,
-            model_scores
+            model_scores,
         ):
-
             evidence_score = (
                 self._evidence_score(
                     query,
-                    item["text"]
+                    item["text"],
                 )
             )
 
@@ -197,23 +186,23 @@ class Reranker:
 
             result = dict(item)
 
-            result["rerank_model_score"] = float(
-                model_score
+            result["rerank_model_score"] = (
+                float(model_score)
             )
 
-            result["evidence_score"] = float(
-                evidence_score
+            result["evidence_score"] = (
+                float(evidence_score)
             )
 
-            result["rerank_score"] = (
-                final_score
-            )
+            result["rerank_score"] = final_score
 
             scored_items.append(result)
 
         scored_items.sort(
             key=lambda x: x["rerank_score"],
-            reverse=True
+            reverse=True,
         )
 
         return scored_items[:top_k]
+
+

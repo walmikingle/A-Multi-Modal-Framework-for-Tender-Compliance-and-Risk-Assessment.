@@ -1,58 +1,28 @@
-# ============================================================
-# RAG APPLICATION CONFIGURATION
-# ============================================================
+﻿# RAG application configuration
 
-# ============================================================
-# PARSER
-# ============================================================
-
+# PDF parser
 parser: "docling"
 
-
-# ============================================================
-# CHUNKING
-# ============================================================
-
+# Chunking
 chunk_size: 700
 chunk_overlap: 200
 
-
-# ============================================================
-# DENSE EMBEDDINGS
-# ============================================================
-
+# Dense embeddings
 embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
 embedding_dimension: 384
 
-
-# ============================================================
-# SPARSE RETRIEVAL
-# ============================================================
-
+# Sparse retrieval (SPLADE)
 sparse_model: "ibm-granite/granite-embedding-30m-sparse"
-
 sparse_document_max_active_dims: 192
 sparse_query_max_active_dims: 50
 
-
-# ============================================================
-# RETRIEVAL
-# ============================================================
-
+# Retrieval
 retrieval_top_k: 10
 rerank_top_k: 5
 
-
-# ============================================================
-# RERANKER
-# ============================================================
-
+# Cross-encoder reranker
 reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
-
-# ============================================================
 # LLM
-# ============================================================
-
 llm_provider: "groq"
 llm_model: "openai/gpt-oss-20b"

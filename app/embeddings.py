@@ -23,7 +23,7 @@ class EmbeddingService:
 
         for item in items:
 
-            if item["type"] in ["text", "table"]:
+            if item["type"] in {"text", "table"}:
 
                 item["embedding"] = self.embed(
                     item["text"]

@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from .config import (
     DATA_DIR,
     PARSER,
@@ -44,39 +44,27 @@ class RAGPipeline:
             f"PDF={pdf_path} | "
             f"Parser={PARSER}"
         )
-
-        # ==================================================
         # CREATE REQUIRED DIRECTORIES
-        # ==================================================
-
-
-
         cache_config = {
-    "parser": PARSER,
-    "chunk_size": CHUNK_SIZE,
-    "chunk_overlap": CHUNK_OVERLAP,
-    "embedding_dimension": EMBEDDING_DIMENSION,
-    "embedding_model": EMBEDDING_MODEL,
-    "sparse_model": SPARSE_MODEL,
-    "sparse_document_max_active_dims": (
-        SPARSE_DOCUMENT_MAX_ACTIVE_DIMS
-    ),
-    "sparse_query_max_active_dims": (
-        SPARSE_QUERY_MAX_ACTIVE_DIMS
-    ),
-    "reranker_model": RERANKER_MODEL,
-}
+            "parser": PARSER,
+            "chunk_size": CHUNK_SIZE,
+            "chunk_overlap": CHUNK_OVERLAP,
+            "embedding_dimension": EMBEDDING_DIMENSION,
+            "embedding_model": EMBEDDING_MODEL,
+            "sparse_model": SPARSE_MODEL,
+            "sparse_document_max_active_dims": (
+                SPARSE_DOCUMENT_MAX_ACTIVE_DIMS
+            ),
+            "sparse_query_max_active_dims": (
+                SPARSE_QUERY_MAX_ACTIVE_DIMS
+            ),
+            "reranker_model": RERANKER_MODEL,
+        }
 
-        config_fingerprint = (
-    create_config_fingerprint(
-        cache_config
-    )
-)
-
-        # ==================================================
+        config_fingerprint = create_config_fingerprint(
+            cache_config
+        )
         # INITIALIZE CACHE
-        # ==================================================
-
         cache_dir = (
             Path(DATA_DIR)
             / "cache"
@@ -91,11 +79,7 @@ class RAGPipeline:
                 pdf_path
             )
         )
-
-        # ==================================================
         # CHECK CACHE
-        # ==================================================
-
         if self.cache.exists(
     pdf_path,
     parser=PARSER,
@@ -124,11 +108,7 @@ class RAGPipeline:
                 "Loading processed document "
                 "from cache..."
             )
-
-            # -------------------------
             # Load processed items
-            # -------------------------
-
             self.items = (
                 self.cache.load_items(
                     pdf_path
@@ -144,11 +124,7 @@ class RAGPipeline:
                 "Loaded cached items | "
                 f"Items={len(self.items)}"
             )
-
-            # -------------------------
             # Load FAISS index
-            # -------------------------
-
             print(
                 "Loading FAISS index from cache..."
             )
@@ -173,21 +149,13 @@ class RAGPipeline:
                 f"Vectors="
                 f"{self.vector_store.index.ntotal}"
             )
-
-            # -------------------------
             # Load SPLADE embeddings
-            # -------------------------
-
             sparse_embeddings = (
                 self.cache.load_sparse_embeddings(
                     pdf_path
                 )
             )
-
-            # -------------------------
             # Initialize sparse search
-            # -------------------------
-
             print(
                 "Initializing sparse search "
                 "from cache..."
@@ -217,11 +185,7 @@ class RAGPipeline:
             logger.info(
                 "Cache loading complete"
             )
-
-        # ==================================================
         # BUILD EVERYTHING
-        # ==================================================
-
         else:
 
             logger.info(
@@ -241,19 +205,11 @@ class RAGPipeline:
             print(
                 "=" * 60
             )
-
-            # -------------------------
             # Initialize text splitter
-            # -------------------------
-
             splitter = (
                 get_text_splitter()
             )
-
-            # -------------------------
             # Process PDF
-            # -------------------------
-
             print(
                 "Loading PDF..."
             )
@@ -262,12 +218,10 @@ class RAGPipeline:
                 f"Using parser: {PARSER}"
             )
 
-            document_output_dir = (
-    get_document_output_dir(
-        pdf_path,
-        DATA_DIR
-    )
-)
+            document_output_dir = get_document_output_dir(
+                pdf_path,
+                DATA_DIR
+            )
 
             logger.info(
                 "Document output directory created | "
@@ -295,11 +249,7 @@ class RAGPipeline:
             print(
                 f"Extracted {len(self.items)} items."
             )
-
-            # -------------------------
             # Initialize embedding service
-            # -------------------------
-
             print(
                 "Loading embedding model..."
             )
@@ -307,11 +257,7 @@ class RAGPipeline:
             self.embedding_service = (
                 EmbeddingService()
             )
-
-            # -------------------------
             # Generate dense embeddings
-            # -------------------------
-
             print(
                 "Generating embeddings..."
             )
@@ -325,11 +271,7 @@ class RAGPipeline:
             logger.info(
                 "Dense embeddings generated"
             )
-
-            # -------------------------
             # Build FAISS index
-            # -------------------------
-
             print(
                 "Building FAISS index..."
             )
@@ -353,11 +295,7 @@ class RAGPipeline:
                 f"{self.vector_store.index.ntotal} "
                 "vectors."
             )
-
-            # -------------------------
             # Build SPLADE sparse index
-            # -------------------------
-
             print(
                 "Building sparse search index..."
             )
@@ -377,51 +315,31 @@ class RAGPipeline:
             print(
                 "Sparse search index ready."
             )
-
-            # ==================================================
             # SAVE CACHE
-            # ==================================================
-
             print(
                 "\nSaving cache..."
             )
-
-            # -------------------------
             # Save processed items
-            # -------------------------
-
             self.cache.save_items(
                 pdf_path,
                 self.items
             )
-
-            # -------------------------
             # Save FAISS index
-            # -------------------------
-
             self.vector_store.save(
                 cache_path / "faiss.index"
             )
-
-            # -------------------------
             # Save SPLADE embeddings
-            # -------------------------
-
             self.sparse_search.save(
                 cache_path
                 / "sparse_embeddings.pkl"
             )
-
-            # -------------------------
             # Save metadata
-            # -------------------------
-
             self.cache.save_metadata(
-    pdf_path,
-    len(self.items),
-    parser=PARSER,
-    config_fingerprint=config_fingerprint
-)
+                pdf_path,
+                len(self.items),
+                parser=PARSER,
+                config_fingerprint=config_fingerprint
+            )
 
             # Log only after all cache files
             # have successfully been written.
@@ -437,20 +355,12 @@ class RAGPipeline:
             print(
                 "Cache saved successfully."
             )
-
-        # ==================================================
         # INITIALIZE SERVICES USED FOR QUERYING
-        # ==================================================
-
-        # -------------------------
         # Dense embedding service
-        # -------------------------
         #
         # Even on a cache hit we need the
         # embedding model because every
         # user query needs a dense embedding.
-        # -------------------------
-
         print(
             "\nLoading embedding model "
             "for query processing..."
@@ -463,11 +373,7 @@ class RAGPipeline:
         logger.info(
             "Query embedding service initialized"
         )
-
-        # -------------------------
         # Build BM25 keyword index
-        # -------------------------
-
         print(
             "Building keyword search index..."
         )
@@ -485,11 +391,7 @@ class RAGPipeline:
         logger.info(
             "BM25 keyword index initialized"
         )
-
-        # -------------------------
         # Initialize re-ranker
-        # -------------------------
-
         print(
             "Initializing re-ranker..."
         )
@@ -505,11 +407,7 @@ class RAGPipeline:
         logger.info(
             "Re-ranker initialized"
         )
-
-        # -------------------------
         # Initialize LLM generator
-        # -------------------------
-
         print(
             "Initializing generator..."
         )
@@ -529,11 +427,7 @@ class RAGPipeline:
         logger.info(
             "RAG pipeline ready"
         )
-
-    # ==================================================
     # ASK
-    # ==================================================
-
     def ask(
         self,
         question
@@ -552,11 +446,7 @@ class RAGPipeline:
         )
 
         try:
-
-            # -------------------------
             # Generate query embedding
-            # -------------------------
-
             query_embedding = (
                 self.embedding_service.embed(
                     question
@@ -566,11 +456,7 @@ class RAGPipeline:
             logger.info(
                 "Query embedding generated"
             )
-
-            # -------------------------
             # Semantic Search - FAISS
-            # -------------------------
-
             semantic_results = (
                 self.vector_store.search(
                     query_embedding,
@@ -583,11 +469,7 @@ class RAGPipeline:
                 f"Results="
                 f"{len(semantic_results)}"
             )
-
-            # -------------------------
             # Keyword Search - BM25
-            # -------------------------
-
             keyword_results = (
                 self.keyword_search.search(
                     question,
@@ -600,11 +482,7 @@ class RAGPipeline:
                 f"Results="
                 f"{len(keyword_results)}"
             )
-
-            # -------------------------
             # Sparse Search - SPLADE
-            # -------------------------
-
             sparse_results = (
                 self.sparse_search.search(
                     question,
@@ -617,11 +495,7 @@ class RAGPipeline:
                 f"Results="
                 f"{len(sparse_results)}"
             )
-
-            # ==================================================
             # CREATE UNIQUE RERANKING CANDIDATE POOL
-            # ==================================================
-
             candidate_pool = []
 
             seen = set()
@@ -658,11 +532,7 @@ class RAGPipeline:
                 f"{len(candidate_pool)} "
                 "unique candidates..."
             )
-
-            # ==================================================
             # RE-RANK CANDIDATES
-            # ==================================================
-
             reranked_results = (
                 self.reranker.rerank(
                     question,
@@ -678,11 +548,7 @@ class RAGPipeline:
                 f"TopK="
                 f"{len(reranked_results)}"
             )
-
-            # ==================================================
             # DISPLAY RE-RANKED RESULTS
-            # ==================================================
-
             print(
                 "\n--- Re-ranked Results ---"
             )
@@ -701,11 +567,7 @@ class RAGPipeline:
                 print(
                     item["text"][:150]
                 )
-
-            # ==================================================
             # GENERATE FINAL ANSWER
-            # ==================================================
-
             print(
                 f"\nGenerating final answer using "
                 f"{len(reranked_results)} "
@@ -739,11 +601,7 @@ class RAGPipeline:
             logger.info(
                 "Final answer generated successfully"
             )
-
-            # ==================================================
             # DISPLAY FINAL ANSWER
-            # ==================================================
-
             print(
                 "\n"
             )
@@ -769,15 +627,13 @@ class RAGPipeline:
             )
 
             return {
-    "answer": final_answer,
-    "candidate_count": len(
-        candidate_pool
-    ),
-    "reranked_results": reranked_results,
-    "faiss_results": semantic_results,
-    "bm25_results": keyword_results,
-    "splade_results": sparse_results
-}
+                "answer": final_answer,
+                "candidate_count": len(candidate_pool),
+                "reranked_results": reranked_results,
+                "faiss_results": semantic_results,
+                "bm25_results": keyword_results,
+                "splade_results": sparse_results,
+            }
 
         except Exception:
 
@@ -787,3 +643,4 @@ class RAGPipeline:
             )
 
             raise
+
