@@ -17,8 +17,10 @@ class KeywordSearch:
             for item in self.items
         ]
 
-        self.bm25 = BM25Okapi(
-            self.tokenized_documents
+        self.bm25 = (
+            BM25Okapi(self.tokenized_documents)
+            if self.tokenized_documents
+            else None
         )
 
     @staticmethod
@@ -27,6 +29,9 @@ class KeywordSearch:
         return text.lower().split()
 
     def search(self, query, k=5):
+
+        if self.bm25 is None or k <= 0:
+            return []
 
         query_tokens = self.tokenize(query)
 

@@ -1,0 +1,244 @@
+{
+    "Tendernotice_1.pdf": [
+        {
+            "question": "What is the revised period for downloading the tender documents after the corrigendum?",
+            "expected_answer": "02 September 2026 at 18:55 to 09 September 2026 at 17:55"
+        },
+        {
+            "question": "What is the revised date and time for opening the tender after the corrigendum?",
+            "expected_answer": "10 September 2026 at 17:55"
+        },
+        {
+            "question": "What is the reference number shown on the corrigendum?",
+            "expected_answer": "2374/2026"
+        },
+        {
+            "question": "Which department issued the tender notice?",
+            "expected_answer": "Public Works Department (Non-Residential), Nashik"
+        },
+        {
+            "question": "On what date was the corrigendum issued?",
+            "expected_answer": "01 September 2026"
+        }
+    ],
+    "Tendernotice_2.pdf": [
+        {
+            "question": "From what date were all BMC tenders required to be published on the Mahatenders system?",
+            "expected_answer": "21 December 2023"
+        },
+        {
+            "question": "What percentage of the estimated cost must a bidder's average annual financial turnover be during the last three years?",
+            "expected_answer": "At least 30% of the estimated cost"
+        },
+        {
+            "question": "What percentage of the total contract price is required as contract deposit from the successful bidder?",
+            "expected_answer": "5% of the total contract price"
+        },
+        {
+            "question": "What happens if a bidder submits misleading or false documents?",
+            "expected_answer": "100% of the EMD is forfeited"
+        },
+        {
+            "question": "In the revised bid capacity formula, what value should be considered for N?",
+            "expected_answer": "0.5"
+        }
+    ],
+    "Tendernotice_3.pdf": [
+        {
+            "question": "What work is covered by Package No. 1?",
+            "expected_answer": "Restoration of damaged parking and footpath by providing and laying GSB, WMM, BM and BC, fixing kerb and channel and interlocking tiles in the cricket pavilion at Sports Complex Sector 38, Gurugram"
+        },
+        {
+            "question": "What is the approximate value of the work in Package No. 1?",
+            "expected_answer": "Rs. 52.43 lakhs"
+        },
+        {
+            "question": "What is the bid security for the contractor in Package No. 1?",
+            "expected_answer": "Rs. 1.05 lakhs"
+        },
+        {
+            "question": "What is the time limit for completing Package No. 1?",
+            "expected_answer": "6 months"
+        },
+        {
+            "question": "What minimum average annual financial turnover is required for bidders?",
+            "expected_answer": "At least 30% of the estimated cost"
+        }
+    ],
+    "Tendernotice_4.pdf": [
+        {
+            "question": "What work is identified in the Bidder Details section?",
+            "expected_answer": "Unstar/E-Tender of CWC Work in R/C Ward"
+        },
+        {
+            "question": "What must a bidder do to participate in the BMC tender under the SOP?",
+            "expected_answer": "Obtain vendor registration in BMC and submit the details in Annexure I while bidding"
+        },
+        {
+            "question": "What average annual financial turnover is required during the last three years?",
+            "expected_answer": "At least 30% of the estimated cost"
+        },
+        {
+            "question": "What contract deposit must the successful bidder pay for faithful performance?",
+            "expected_answer": "5% of the total contract price"
+        },
+        {
+            "question": "What happens if a bidder submits misleading or false documents?",
+            "expected_answer": "100% of the EMD is forfeited"
+        }
+    ],
+    "Tendernotice_5.pdf": [
+        {
+            "question": "What activity is the draft Coal India tender intended for?",
+            "expected_answer": "Hiring a recruitment agency through the GeM portal for conducting various recruitment processes"
+        },
+        {
+            "question": "What platform are eligible bidders required to use for this tender?",
+            "expected_answer": "GeM (Government e-Marketplace)"
+        },
+        {
+            "question": "What minimum average annual financial turnover is specified for the bidder?",
+            "expected_answer": "At least 30% of the estimated cost during the last three years"
+        },
+        {
+            "question": "What is the proposed Pre-NIT meeting date and time?",
+            "expected_answer": "17 December 2024 at 10:30 am"
+        },
+        {
+            "question": "Are prior experience and prior turnover relaxed for eligible DPIIT-recognized startup bidders?",
+            "expected_answer": "Yes, for recognized startups in the relevant Works/Services category, subject to meeting quality and technical specifications"
+        }
+    ],
+    "Tendernotice_6.pdf": [
+        {
+            "question": "What services are covered by the IISER Tirupati tender?",
+            "expected_answer": "Manpower outsourcing services including Ministerial, Housekeeping, Technical, Gardening and Drivers"
+        },
+        {
+            "question": "What minimum annual turnover is required in the manpower outsourcing business?",
+            "expected_answer": "At least Rs. 17.00 crore in each of the previous three financial years"
+        },
+        {
+            "question": "Within how many days must the contractor commence the services after receiving the LoI/GeM Contract?",
+            "expected_answer": "Within 15 days"
+        },
+        {
+            "question": "What happens to a bid if the bidder fails to honor the quoted prices?",
+            "expected_answer": "The bid security may be forfeited and the bidder may be debarred from future tendering"
+        },
+        {
+            "question": "What is the initial duration of the contract stated in the document?",
+            "expected_answer": "One year, from 20 January 2024 to 19 January 2025"
+        }
+    ],
+    "Tendernotice_7.pdf": [
+        {
+            "question": "What is the tender number of the OSCSC tender?",
+            "expected_answer": "17356/OSCSC/GUNNY/02/2022-23"
+        },
+        {
+            "question": "What is the main work covered by the tender?",
+            "expected_answer": "Selection and appointment of Handling & Transport Contractors for transportation of new gunny bales from receiving railheads in Odisha to designated base depots"
+        },
+        {
+            "question": "What is the non-refundable tender document fee for each tender ID?",
+            "expected_answer": "Rs. 2,950 inclusive of GST"
+        },
+        {
+            "question": "What is the original contract period?",
+            "expected_answer": "Two years from the date of execution of the agreement"
+        },
+        {
+            "question": "Who is ineligible based on past contract/EMD history?",
+            "expected_answer": "A bidder whose OSCSC contract was terminated in the last five years, or whose EMD was forfeited by OSCSC or a State/Central Government PSU or agency in the last five years"
+        }
+    ],
+    "Tendernotice_8.pdf": [
+        {
+            "question": "What is the NIT number of the New Mangalore Port Authority tender?",
+            "expected_answer": "NMPA/Mech/AEE(E)/EE(E)I/2024/0802"
+        },
+        {
+            "question": "What is the name of the work in the NMPA tender?",
+            "expected_answer": "Electrification Work to the Toilet Block, Canteen, Dormitory Building, Shops & Clinic in Truck Terminal near KK Gate at NMPA"
+        },
+        {
+            "question": "What is the estimated cost of the tender excluding GST?",
+            "expected_answer": "Rs. 23,00,782/-"
+        },
+        {
+            "question": "What average annual financial turnover is required for the last three financial years?",
+            "expected_answer": "Rs. 6,90,235/-"
+        },
+        {
+            "question": "For how long is the tender valid from the date of opening of the technical bids?",
+            "expected_answer": "120 days"
+        }
+    ],
+    "Tendernotice_9.pdf": [
+        {
+            "question": "What is the enquiry number for the NIPER Hyderabad procurement?",
+            "expected_answer": "PUR/NIPERHYD/NC/160/21"
+        },
+        {
+            "question": "What material is being procured?",
+            "expected_answer": "Spare Parts and Tuning Mix"
+        },
+        {
+            "question": "What is the last date and time for submission of the quotation?",
+            "expected_answer": "15 November 2021 up to 5:00 pm"
+        },
+        {
+            "question": "When is the quotation scheduled to be opened?",
+            "expected_answer": "16 November 2021 at 5:00 pm"
+        },
+        {
+            "question": "How long must the quoted rates remain valid from the date of opening of the commercial bid?",
+            "expected_answer": "90 days"
+        }
+    ],
+    "Tendernotice_10.pdf": [
+        {
+            "question": "What is the e-NIT number of the AIIMS Bhubaneswar tender?",
+            "expected_answer": "AIIMS/BBSR/Engg./005/2025-26"
+        },
+        {
+            "question": "What is the name of the work covered by the tender?",
+            "expected_answer": "Annual Maintenance Contract of Civil Works in the Housing Complex of AIIMS, Bhubaneswar for 2025-2026 and 2026-2027"
+        },
+        {
+            "question": "What is the estimated cost of the work?",
+            "expected_answer": "Rs. 1,21,83,552/-"
+        },
+        {
+            "question": "What is the last date and time for submission of the bid?",
+            "expected_answer": "22 December 2025 at 12:30 pm"
+        },
+        {
+            "question": "What percentage of the tendered amount is required as Performance Guarantee?",
+            "expected_answer": "5% of the tendered amount"
+        }
+    ],
+    "Tendernotice_11.pdf": [
+        {
+            "question": "What is the Tender ID for the SBI Mankani Branch premises tender?",
+            "expected_answer": "GNRVAO6011/2026-27"
+        },
+        {
+            "question": "What type of premises does SBI seek under this tender?",
+            "expected_answer": "Commercial branch/office space on lease for SBI Mankani Branch, Chhota Udaipur"
+        },
+        {
+            "question": "What is the required floor area and location condition for the premises?",
+            "expected_answer": "About 2,000 sq. ft. (+5%), within 2 km of the existing Mankani branch in the main area of Mankani"
+        },
+        {
+            "question": "What is the last date and time for submission of tenders?",
+            "expected_answer": "09 September 2026 at 3:00 pm"
+        },
+        {
+            "question": "What is the initial lease period for the premises?",
+            "expected_answer": "5 years"
+        }
+    ]
+}
