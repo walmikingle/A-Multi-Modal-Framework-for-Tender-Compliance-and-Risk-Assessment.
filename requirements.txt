@@ -1,5 +1,5 @@
 ﻿# PDF processing
-docling
+docling==2.124.0
 PyMuPDF
 
 # Text splitting

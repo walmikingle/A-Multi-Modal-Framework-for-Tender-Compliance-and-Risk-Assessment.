@@ -1,18 +1,24 @@
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.config import PARSER
 from app.pipeline import RAGPipeline
 
-from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="RAG Tender API")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 UPLOAD_DIR = Path("/app/test_tenders")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -21,6 +27,11 @@ pipeline_state = {"rag": None, "pdf": None}
 
 class Question(BaseModel):
     question: str
+
+
+@app.get("/")
+def serve_frontend():
+    return FileResponse("app/static/index.html")
 
 
 @app.get("/health")

@@ -226,8 +226,32 @@
   }
 
   .a-text {
-    margin: 0;
     font-size: 15px;
+  }
+
+  .a-text p {
+    margin: 0 0 12px;
+  }
+
+  .a-text p:last-child {
+    margin-bottom: 0;
+  }
+
+  .a-text ol, .a-text ul {
+    margin: 0;
+    padding-left: 22px;
+  }
+
+  .a-text li {
+    margin-bottom: 8px;
+  }
+
+  .a-text li:last-child {
+    margin-bottom: 0;
+  }
+
+  .a-text strong {
+    font-weight: 600;
   }
 
   .evidence {
@@ -355,7 +379,7 @@
 
     <div class="field">
       <label for="apiBase">API endpoint</label>
-      <input type="text" id="apiBase" value="http://localhost:8000" />
+      <input type="text" id="apiBase" />
     </div>
   </div>
 
@@ -375,6 +399,10 @@
 </div>
 
 <script>
+  document.getElementById('apiBase').value = window.location.origin;
+</script>
+
+<script>
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
   const docCard = document.getElementById('docCard');
@@ -389,6 +417,53 @@
   const askBtn = document.getElementById('askBtn');
 
   let documentReady = false;
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function formatParagraph(para) {
+    const trimmed = para.trim();
+    if (!trimmed) return '';
+
+    const listMatches = [...trimmed.matchAll(/(?:^|[:.])\s+(\d{1,2}\.\s)/g)];
+
+    if (listMatches.length >= 2) {
+      const parts = trimmed.split(/(?<=[:.])\s+(?=\d{1,2}\.\s)/);
+      let intro = '';
+      const items = [];
+
+      parts.forEach((part, idx) => {
+        const m = part.match(/^(\d{1,2})\.\s+([\s\S]*)$/);
+        if (m) {
+          items.push(m[2].trim());
+        } else if (idx === 0) {
+          intro = part.trim();
+        } else if (items.length) {
+          items[items.length - 1] += ' ' + part.trim();
+        } else {
+          intro += ' ' + part.trim();
+        }
+      });
+
+      let html = '';
+      if (intro) html += '<p>' + intro + '</p>';
+      html += '<ol>' + items.map((i) => '<li>' + i + '</li>').join('') + '</ol>';
+      return html;
+    }
+
+    return '<p>' + trimmed + '</p>';
+  }
+
+  function formatAnswer(raw) {
+    const escaped = escapeHtml(raw);
+    const bolded = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    const paragraphs = bolded.split(/\n\s*\n/);
+    return paragraphs.map(formatParagraph).join('');
+  }
 
   function apiBase() {
     return apiBaseInput.value.trim().replace(/\/$/, '');
@@ -514,7 +589,7 @@
 
       const data = await res.json();
       aCard.classList.remove('pending');
-      aText.textContent = data.answer || 'No answer returned.';
+      aText.innerHTML = formatAnswer(data.answer || 'No answer returned.');
 
       if (data.reranked_results && data.reranked_results.length) {
         const evidence = document.createElement('details');
