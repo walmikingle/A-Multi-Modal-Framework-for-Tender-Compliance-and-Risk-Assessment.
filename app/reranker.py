@@ -1,8 +1,7 @@
-﻿import re
-
+﻿
 import torch
 from sentence_transformers import CrossEncoder
-
+import re
 from .config import RERANKER_MODEL
 
 

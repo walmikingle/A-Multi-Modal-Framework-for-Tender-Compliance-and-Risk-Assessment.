@@ -1,0 +1,19 @@
+services:
+  rag:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    env_file:
+      - .env
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./data:/app/data
+      - ./test_tenders:/app/test_tenders
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+
+    stdin_open: true
+    tty: true

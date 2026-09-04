@@ -20,7 +20,8 @@ class SparseSearch:
         print("Loading sparse retrieval model...")
 
         self.model = SparseEncoder(
-            SPARSE_MODEL
+            SPARSE_MODEL,
+            device="cpu"
         )
 
         self.items = [

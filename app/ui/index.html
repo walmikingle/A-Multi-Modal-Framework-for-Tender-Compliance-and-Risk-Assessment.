@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tender Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F7F4EC;
+    --ink: #1F1D1A;
+    --ink-soft: #6B675F;
+    --navy: #2F3E5C;
+    --navy-dark: #212D42;
+    --hairline: #C9C2B4;
+    --rust: #A63D2F;
+    --gold: #C89B3C;
+    --card: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .topbar h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--hairline);
+  }
+
+  .dot.live { background: var(--navy); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: calc(100vh - 65px);
+  }
+
+  @media (max-width: 780px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    padding: 28px 24px;
+    border-right: 1px solid var(--hairline);
+  }
+
+  .section-label {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+
+  .dropzone {
+    border: 1px dashed var(--hairline);
+    border-radius: 4px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--card);
+    transition: border-color 0.15s ease;
+  }
+
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--navy);
+  }
+
+  .dropzone p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .dropzone .cta {
+    color: var(--navy);
+    font-weight: 500;
+  }
+
+  input[type="file"] { display: none; }
+
+  .doc-card {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    display: none;
+  }
+
+  .doc-card.show { display: block; }
+
+  .doc-name {
+    font-size: 13px;
+    font-weight: 500;
+    word-break: break-word;
+    margin: 0 0 4px;
+  }
+
+  .doc-state {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .doc-state.ready { color: var(--navy); }
+  .doc-state.error { color: var(--rust); }
+
+  .field {
+    margin-top: 28px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+
+  .field input[type="text"] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    background: var(--card);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .field input[type="text"]:focus {
+    outline: none;
+    border-color: var(--navy);
+  }
+
+  .thread-wrap {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 65px);
+  }
+
+  .thread {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 40px;
+  }
+
+  .empty {
+    max-width: 420px;
+    margin-top: 60px;
+  }
+
+  .empty h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 19px;
+    margin: 0 0 8px;
+  }
+
+  .empty p {
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .turn {
+    max-width: 640px;
+    margin-bottom: 28px;
+  }
+
+  .q {
+    font-size: 15px;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+    padding-left: 14px;
+    border-left: 2px solid var(--hairline);
+  }
+
+  .a-card {
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 16px 18px;
+  }
+
+  .a-card.pending .a-text {
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  .a-card.error {
+    border-color: var(--rust);
+  }
+
+  .a-text {
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .evidence {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+  }
+
+  .evidence summary {
+    font-size: 12px;
+    color: var(--navy);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .evidence summary::-webkit-details-marker { display: none; }
+
+  .evidence summary::before {
+    content: "Evidence (" attr(data-count) ")";
+  }
+
+  .ev-item {
+    margin-top: 10px;
+    font-size: 13px;
+  }
+
+  .ev-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+
+  .ev-page {
+    color: var(--ink-soft);
+  }
+
+  .ev-score {
+    color: var(--gold);
+    font-size: 11px;
+  }
+
+  .ev-text {
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .composer {
+    border-top: 1px solid var(--hairline);
+    padding: 18px 40px 24px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .composer input[type="text"] {
+    flex: 1;
+    padding: 11px 14px;
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    background: var(--card);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .composer input[type="text"]:focus {
+    outline: none;
+    border-color: var(--navy);
+  }
+
+  .composer input[type="text"]:disabled {
+    background: var(--paper);
+    color: var(--ink-soft);
+  }
+
+  .composer button {
+    padding: 11px 20px;
+    background: var(--navy);
+    color: var(--paper);
+    border: none;
+    border-radius: 4px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .composer button:hover { background: var(--navy-dark); }
+
+  .composer button:disabled {
+    background: var(--hairline);
+    cursor: not-allowed;
+  }
+
+  .inline-error {
+    font-size: 12px;
+    color: var(--rust);
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Tender Desk</h1>
+  <div class="status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">No document loaded</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="panel">
+    <p class="section-label">Document</p>
+
+    <div class="dropzone" id="dropzone">
+      <p><span class="cta">Choose a PDF</span> or drop it here</p>
+    </div>
+    <input type="file" id="fileInput" accept="application/pdf" />
+
+    <div class="doc-card" id="docCard">
+      <p class="doc-name" id="docName"></p>
+      <p class="doc-state" id="docState">Uploading…</p>
+    </div>
+
+    <div class="field">
+      <label for="apiBase">API endpoint</label>
+      <input type="text" id="apiBase" value="http://localhost:8000" />
+    </div>
+  </div>
+
+  <div class="thread-wrap">
+    <div class="thread" id="thread">
+      <div class="empty" id="emptyState">
+        <h2>Load a tender document to begin</h2>
+        <p>Upload a PDF on the left, then ask questions about deadlines, eligibility, pricing terms, or any clause in the document.</p>
+      </div>
+    </div>
+
+    <div class="composer">
+      <input type="text" id="questionInput" placeholder="Ask a question about the tender" disabled />
+      <button id="askBtn" disabled>Ask</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const docCard = document.getElementById('docCard');
+  const docName = document.getElementById('docName');
+  const docState = document.getElementById('docState');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const apiBaseInput = document.getElementById('apiBase');
+  const thread = document.getElementById('thread');
+  const emptyState = document.getElementById('emptyState');
+  const questionInput = document.getElementById('questionInput');
+  const askBtn = document.getElementById('askBtn');
+
+  let documentReady = false;
+
+  function apiBase() {
+    return apiBaseInput.value.trim().replace(/\/$/, '');
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag');
+  });
+
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) {
+      handleUpload(e.dataTransfer.files[0]);
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+      handleUpload(fileInput.files[0]);
+    }
+  });
+
+  async function handleUpload(file) {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Please choose a PDF file.');
+      return;
+    }
+
+    docCard.classList.add('show');
+    docName.textContent = file.name;
+    docState.textContent = 'Uploading and indexing… this can take up to a minute.';
+    docState.className = 'doc-state';
+    documentReady = false;
+    updateComposerState();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(apiBase() + '/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || ('HTTP ' + res.status));
+      }
+
+      const data = await res.json();
+      docState.textContent = 'Loaded — ready for questions';
+      docState.className = 'doc-state ready';
+      documentReady = true;
+      statusDot.classList.add('live');
+      statusText.textContent = file.name;
+    } catch (err) {
+      docState.textContent = 'Upload failed: ' + err.message;
+      docState.className = 'doc-state error';
+      documentReady = false;
+    }
+
+    updateComposerState();
+  }
+
+  function updateComposerState() {
+    questionInput.disabled = !documentReady;
+    askBtn.disabled = !documentReady;
+    if (documentReady) {
+      questionInput.placeholder = 'Ask a question about the tender';
+    }
+  }
+
+  askBtn.addEventListener('click', submitQuestion);
+  questionInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitQuestion();
+  });
+
+  async function submitQuestion() {
+    const question = questionInput.value.trim();
+    if (!question) return;
+
+    if (emptyState) emptyState.remove();
+
+    const turn = document.createElement('div');
+    turn.className = 'turn';
+
+    const q = document.createElement('p');
+    q.className = 'q';
+    q.textContent = question;
+    turn.appendChild(q);
+
+    const aCard = document.createElement('div');
+    aCard.className = 'a-card pending';
+    const aText = document.createElement('p');
+    aText.className = 'a-text';
+    aText.textContent = 'Reading the document…';
+    aCard.appendChild(aText);
+    turn.appendChild(aCard);
+
+    thread.appendChild(turn);
+    thread.scrollTop = thread.scrollHeight;
+
+    questionInput.value = '';
+    askBtn.disabled = true;
+
+    try {
+      const res = await fetch(apiBase() + '/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || ('HTTP ' + res.status));
+      }
+
+      const data = await res.json();
+      aCard.classList.remove('pending');
+      aText.textContent = data.answer || 'No answer returned.';
+
+      if (data.reranked_results && data.reranked_results.length) {
+        const evidence = document.createElement('details');
+        evidence.className = 'evidence';
+        const summary = document.createElement('summary');
+        summary.setAttribute('data-count', data.reranked_results.length);
+        evidence.appendChild(summary);
+
+        data.reranked_results.forEach((item) => {
+          const evItem = document.createElement('div');
+          evItem.className = 'ev-item';
+
+          const meta = document.createElement('div');
+          meta.className = 'ev-meta';
+          const page = document.createElement('span');
+          page.className = 'ev-page';
+          page.textContent = 'Page ' + item.page;
+          const score = document.createElement('span');
+          score.className = 'ev-score';
+          score.textContent = 'score ' + Number(item.score).toFixed(2);
+          meta.appendChild(page);
+          meta.appendChild(score);
+
+          const text = document.createElement('p');
+          text.className = 'ev-text';
+          text.textContent = item.text;
+
+          evItem.appendChild(meta);
+          evItem.appendChild(text);
+          evidence.appendChild(evItem);
+        });
+
+        aCard.appendChild(evidence);
+      }
+    } catch (err) {
+      aCard.classList.remove('pending');
+      aCard.classList.add('error');
+      aText.textContent = 'Could not get an answer: ' + err.message;
+    }
+
+    askBtn.disabled = !documentReady;
+    thread.scrollTop = thread.scrollHeight;
+  }
+</script>
+
+</body>
+</html>

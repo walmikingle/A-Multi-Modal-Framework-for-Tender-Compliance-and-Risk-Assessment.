@@ -21,3 +21,9 @@ python-dotenv
 
 # Numerical computing
 numpy
+
+fastapi
+uvicorn[standard]
+python-multipart
+
+transformers==4.46.3

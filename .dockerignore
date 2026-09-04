@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.venv2
+__pycache__
+*.py[cod]
+.env
+.env.*
+data
+test_tenders
+.vscode
+code_review.zip
+fsfs
+evaluation/results
+*.log
