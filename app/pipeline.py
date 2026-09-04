@@ -427,6 +427,99 @@ class RAGPipeline:
         logger.info(
             "RAG pipeline ready"
         )
+    def _is_table_query(self, question):
+        table_terms = {
+            "material schedule",
+            "material list",
+            "schedule of quantities",
+            "schedule of quantities & prices",
+            "bill of quantities",
+            "boq",
+        }
+
+        table_intent_terms = {
+            "list",
+            "items",
+            "materials",
+            "quantities",
+            "quantity",
+            "show",
+            "display",
+            "enumerate",
+            "what are",
+            "which items",
+            "give me",
+            "provide",
+        }
+
+        question_normalized = question.lower()
+
+        has_table_term = any(
+            term in question_normalized
+            for term in table_terms
+        )
+
+        has_table_intent = any(
+            term in question_normalized
+            for term in table_intent_terms
+        )
+
+        return (
+            has_table_term
+            and has_table_intent
+        )
+
+    def _reconstruct_tables(self, results):
+        table_candidates = {}
+
+        for rank, item in enumerate(results):
+            if item.get("type") != "table":
+                continue
+
+            table_index = item.get("table_index")
+
+            if table_index is None:
+                continue
+
+            info = table_candidates.setdefault(
+                table_index,
+                {
+                    "row_indices": set(),
+                    "first_rank": rank,
+                },
+            )
+
+            row_index = item.get("row_index")
+
+            if row_index is not None:
+                info["row_indices"].add(row_index)
+
+        if not table_candidates:
+            return []
+
+        best_table_index = max(
+            table_candidates,
+            key=lambda index: (
+                len(table_candidates[index]["row_indices"]),
+                -table_candidates[index]["first_rank"],
+            ),
+        )
+
+        table_rows = [
+            candidate
+            for candidate in self.items
+            if (
+                candidate.get("type") == "table"
+                and candidate.get("table_index") == best_table_index
+            )
+        ]
+
+        table_rows.sort(
+            key=lambda candidate: candidate.get("row_index", 0)
+        )
+
+        return table_rows
+
     # ASK
     def ask(
         self,
@@ -540,6 +633,18 @@ class RAGPipeline:
                     RERANK_TOP_K
                 )
             )
+
+            if self._is_table_query(question):
+                table_results = self._reconstruct_tables(
+                    candidate_pool
+                )
+
+                if table_results:
+                    reranked_results = self.reranker.rerank(
+                        question,
+                        table_results,
+                        len(table_results)
+                    )
 
             logger.info(
                 "Reranking complete | "
