@@ -13,7 +13,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./test_tenders:/app/test_tenders
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
 
     stdin_open: true
     tty: true

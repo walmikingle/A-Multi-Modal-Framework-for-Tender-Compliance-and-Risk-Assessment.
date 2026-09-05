@@ -1,4 +1,4 @@
-﻿# RAG application configuration
+﻿﻿# RAG application configuration
 
 # PDF parser
 parser: "docling"

@@ -204,4 +204,3 @@ class Reranker:
 
         return scored_items[:top_k]
 
-
