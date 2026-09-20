@@ -1,0 +1,10 @@
+* text=auto
+*.py text
+*.yaml text
+*.yml text
+*.js text
+*.jsx text
+*.css text
+*.html text
+*.json text
+*.md text

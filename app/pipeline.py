@@ -520,7 +520,188 @@ class RAGPipeline:
 
         return table_rows
 
+        # --------------------------------------------------------
+    # QUERY ASPECT DECOMPOSITION
+    # --------------------------------------------------------
+
+    def _build_aspect_queries(
+        self,
+        question
+    ):
+        """
+        Detect independent information requirements in a question.
+
+        Returns:
+            list[str]
+
+        If multiple aspects are detected, each aspect gets its
+        own focused retrieval query.
+
+        If no known aspect is detected, the original question
+        is returned as a single query.
+        """
+
+        q = question.strip()
+        lower_q = q.lower()
+
+        aspect_queries = []
+
+        # ----------------------------------------------------
+        # EMD / BID SECURITY
+        # ----------------------------------------------------
+
+        has_emd = (
+            "emd" in lower_q
+            or "earnest money" in lower_q
+            or "bid security" in lower_q
+        )
+
+        if has_emd:
+
+            # EMD VALIDITY
+            if (
+                "validity" in lower_q
+                or "valid for" in lower_q
+                or "valid period" in lower_q
+                or "validity period" in lower_q
+                or "from which date" in lower_q
+                or "how long" in lower_q
+            ):
+
+                aspect_queries.append(
+                    "What is the validity period of the "
+                    "e-Bank Guarantee submitted as Earnest Money, "
+                    "and from which date is that validity calculated?"
+                )
+
+            # EMD AMOUNT
+            if (
+                "amount" in lower_q
+                or "cost" in lower_q
+                or "value" in lower_q
+                or "how much" in lower_q
+            ):
+
+                aspect_queries.append(
+                    "What is the exact EMD or bid security "
+                    "amount required in the tender?"
+                )
+
+            # EMD ACCEPTED FORMS
+            if (
+                "form" in lower_q
+                or "forms" in lower_q
+                or "accepted" in lower_q
+                or "acceptable" in lower_q
+                or "instrument" in lower_q
+                or "instruments" in lower_q
+            ):
+
+                aspect_queries.append(
+                    "What forms or instruments of EMD or bid security "
+                    "are accepted in the tender, including Demand Draft, "
+                    "Fixed Deposit Receipt, Bankers Cheque, electronic transfer, "
+                    "Bank Guarantee/e-BG, and Insurance Surety Bond?"
+                )
+
+        # ----------------------------------------------------
+        # BID VALIDITY
+        # ----------------------------------------------------
+
+        if (
+            "bid validity" in lower_q
+            or "validity of bid" in lower_q
+        ):
+
+            aspect_queries.append(
+                "What is the bid validity period, "
+                "or for how many days does the bid remain valid?"
+            )
+
+        # ----------------------------------------------------
+        # TURNOVER
+        # ----------------------------------------------------
+
+        if (
+            "turnover" in lower_q
+            or "annual turnover" in lower_q
+        ):
+
+            aspect_queries.append(
+                "What is the minimum annual turnover requirement "
+                "and which financial years are considered?"
+            )
+
+        # ----------------------------------------------------
+        # ELIGIBILITY / QUALIFICATION
+        # ----------------------------------------------------
+
+        if (
+            "eligibility" in lower_q
+            or "eligible" in lower_q
+            or "qualification" in lower_q
+            or "qualifying" in lower_q
+        ):
+
+            aspect_queries.append(
+                "What are the bidder eligibility and "
+                "qualification requirements?"
+            )
+
+        # ----------------------------------------------------
+        # COMPLETION PERIOD
+        # ----------------------------------------------------
+
+        if (
+            "completion period" in lower_q
+            or "completion time" in lower_q
+            or "period of completion" in lower_q
+        ):
+
+            aspect_queries.append(
+                "What is the required completion period "
+                "or completion time?"
+            )
+
+        # ----------------------------------------------------
+        # DEDUPLICATE
+        # ----------------------------------------------------
+
+        deduplicated = []
+
+        seen = set()
+
+        for aspect in aspect_queries:
+
+            normalized = (
+                aspect.strip().lower()
+            )
+
+            if normalized not in seen:
+
+                seen.add(
+                    normalized
+                )
+
+                deduplicated.append(
+                    aspect
+                )
+
+        # ----------------------------------------------------
+        # FALLBACK
+        # ----------------------------------------------------
+
+        if not deduplicated:
+
+            return [q]
+
+        return deduplicated
+
+
+        # --------------------------------------------------------
     # ASK
+    # --------------------------------------------------------
+
     def ask(
         self,
         question
@@ -539,145 +720,586 @@ class RAGPipeline:
         )
 
         try:
-            # Generate query embedding
-            query_embedding = (
-                self.embedding_service.embed(
+
+            # ------------------------------------------------
+            # QUERY ASPECTS
+            # ------------------------------------------------
+
+            aspect_queries = (
+                self._build_aspect_queries(
                     question
                 )
             )
 
-            logger.info(
-                "Query embedding generated"
-            )
-            # Semantic Search - FAISS
-            semantic_results = (
-                self.vector_store.search(
-                    query_embedding,
-                    RETRIEVAL_TOP_K
-                )
+            multi_aspect = (
+                len(aspect_queries) > 1
             )
 
             logger.info(
-                "FAISS retrieval complete | "
-                f"Results="
-                f"{len(semantic_results)}"
-            )
-            # Keyword Search - BM25
-            keyword_results = (
-                self.keyword_search.search(
-                    question,
-                    RETRIEVAL_TOP_K
-                )
+                "Query aspect analysis complete | "
+                f"Aspects={len(aspect_queries)} | "
+                f"MultiAspect={multi_aspect}"
             )
 
-            logger.info(
-                "BM25 retrieval complete | "
-                f"Results="
-                f"{len(keyword_results)}"
-            )
-            # Sparse Search - SPLADE
-            sparse_results = (
-                self.sparse_search.search(
-                    question,
-                    RETRIEVAL_TOP_K
-                )
-            )
+            # =================================================
+            # PATH 1
+            # SIMPLE / SINGLE-ASPECT QUERY
+            # =================================================
+            #
+            # Keep the existing fast retrieval path.
+            # This avoids additional embedding, retrieval and
+            # reranking work for normal questions.
+            #
+            # =================================================
 
-            logger.info(
-                "SPLADE retrieval complete | "
-                f"Results="
-                f"{len(sparse_results)}"
-            )
-            # CREATE UNIQUE RERANKING CANDIDATE POOL
-            candidate_pool = []
+            if not multi_aspect:
 
-            seen = set()
-
-            for item in (
-                semantic_results
-                + keyword_results
-                + sparse_results
-            ):
-
-                key = (
-                    item.get("page"),
-                    item.get("text", "")
+                logger.info(
+                    "Using standard single-query retrieval path"
                 )
 
-                if key not in seen:
+                # ---------------------------------------------
+                # QUERY EMBEDDING
+                # ---------------------------------------------
 
-                    seen.add(
-                        key
+                query_embedding = (
+                    self.embedding_service.embed(
+                        question
                     )
+                )
 
-                    candidate_pool.append(
-                        item
+                logger.info(
+                    "Query embedding generated"
+                )
+
+                # ---------------------------------------------
+                # FAISS
+                # ---------------------------------------------
+
+                semantic_results = (
+                    self.vector_store.search(
+                        query_embedding,
+                        RETRIEVAL_TOP_K
                     )
-
-            logger.info(
-                "Candidate pool created | "
-                f"Unique candidates="
-                f"{len(candidate_pool)}"
-            )
-
-            print(
-                f"\nReranking "
-                f"{len(candidate_pool)} "
-                "unique candidates..."
-            )
-            # RE-RANK CANDIDATES
-            reranked_results = (
-                self.reranker.rerank(
-                    question,
-                    candidate_pool,
-                    RERANK_TOP_K
-                )
-            )
-
-            if self._is_table_query(question):
-                table_results = self._reconstruct_tables(
-                    candidate_pool
                 )
 
-                if table_results:
-                    reranked_results = self.reranker.rerank(
+                logger.info(
+                    "FAISS retrieval complete | "
+                    f"Results="
+                    f"{len(semantic_results)}"
+                )
+
+                # ---------------------------------------------
+                # BM25
+                # ---------------------------------------------
+
+                keyword_results = (
+                    self.keyword_search.search(
                         question,
-                        table_results,
-                        len(table_results)
+                        RETRIEVAL_TOP_K
+                    )
+                )
+
+                logger.info(
+                    "BM25 retrieval complete | "
+                    f"Results="
+                    f"{len(keyword_results)}"
+                )
+
+                # ---------------------------------------------
+                # SPLADE
+                # ---------------------------------------------
+
+                sparse_results = (
+                    self.sparse_search.search(
+                        question,
+                        RETRIEVAL_TOP_K
+                    )
+                )
+
+                logger.info(
+                    "SPLADE retrieval complete | "
+                    f"Results="
+                    f"{len(sparse_results)}"
+                )
+
+                # ---------------------------------------------
+                # UNIQUE CANDIDATE POOL
+                # ---------------------------------------------
+
+                candidate_pool = []
+
+                seen = set()
+
+                for item in (
+                    semantic_results
+                    + keyword_results
+                    + sparse_results
+                ):
+
+                    key = (
+                        item.get("page"),
+                        item.get(
+                            "text",
+                            ""
+                        )
                     )
 
-            logger.info(
-                "Reranking complete | "
-                f"Candidates="
-                f"{len(candidate_pool)} | "
-                f"TopK="
-                f"{len(reranked_results)}"
-            )
-            # DISPLAY RE-RANKED RESULTS
-            print(
-                "\n--- Re-ranked Results ---"
-            )
+                    if key not in seen:
 
-            for i, item in enumerate(
-                reranked_results,
-                start=1
-            ):
+                        seen.add(
+                            key
+                        )
 
-                print(
-                    f"\n{i}. Page {item['page']} "
-                    f"| Score: "
-                    f"{item['rerank_score']:.4f}"
+                        candidate_pool.append(
+                            item
+                        )
+
+                logger.info(
+                    "Candidate pool created | "
+                    f"Unique candidates="
+                    f"{len(candidate_pool)}"
                 )
 
-                print(
-                    item["text"][:150]
+                # ---------------------------------------------
+                # RERANK
+                # ---------------------------------------------
+
+                reranked_results = (
+                    self.reranker.rerank(
+                        question,
+                        candidate_pool,
+                        RERANK_TOP_K
+                    )
                 )
+
+                # ---------------------------------------------
+                # TABLE QUERY
+                # ---------------------------------------------
+
+                if self._is_table_query(
+                    question
+                ):
+
+                    table_results = (
+                        self._reconstruct_tables(
+                            candidate_pool
+                        )
+                    )
+
+                    if table_results:
+
+                        reranked_results = (
+                            self.reranker.rerank(
+                                question,
+                                table_results,
+                                len(table_results)
+                            )
+                        )
+
+                        logger.info(
+                            "Table query detected | "
+                            f"ReconstructedRows="
+                            f"{len(table_results)}"
+                        )
+
+                logger.info(
+                    "Reranking complete | "
+                    f"Candidates="
+                    f"{len(candidate_pool)} | "
+                    f"TopK="
+                    f"{len(reranked_results)}"
+                )
+
+            # =================================================
+            # PATH 2
+            # MULTI-ASPECT QUERY
+            # =================================================
+            #
+            # Each aspect gets its own:
+            #   embedding
+            #   FAISS retrieval
+            #   BM25 retrieval
+            #   SPLADE retrieval
+            #   candidate fusion
+            #   reranking
+            #
+            # This prevents one aspect from crowding another
+            # out of the final evidence set.
+            #
+            # =================================================
+
+            else:
+
+                logger.info(
+                    "Using aspect-aware retrieval path | "
+                    f"Aspects={len(aspect_queries)}"
+                )
+
+                combined_results = []
+
+                seen_result_keys = set()
+
+                # Keep raw retrieval results for diagnostics
+                # and return compatibility.
+                all_faiss_results = []
+                all_bm25_results = []
+                all_splade_results = []
+
+                for aspect_query in aspect_queries:
+
+                    logger.info(
+                        "Processing query aspect | "
+                        f"Aspect={aspect_query}"
+                    )
+
+                    # -----------------------------------------
+                    # ASPECT QUERY EMBEDDING
+                    # -----------------------------------------
+
+                    aspect_embedding = (
+                        self.embedding_service.embed(
+                            aspect_query
+                        )
+                    )
+
+                    # -----------------------------------------
+                    # ASPECT FAISS
+                    # -----------------------------------------
+
+                    aspect_semantic_results = (
+                        self.vector_store.search(
+                            aspect_embedding,
+                            RETRIEVAL_TOP_K
+                        )
+                    )
+
+                    all_faiss_results.extend(
+                        aspect_semantic_results
+                    )
+
+                    # -----------------------------------------
+                    # ASPECT BM25
+                    # -----------------------------------------
+
+                    aspect_keyword_results = (
+                        self.keyword_search.search(
+                            aspect_query,
+                            RETRIEVAL_TOP_K
+                        )
+                    )
+
+                    all_bm25_results.extend(
+                        aspect_keyword_results
+                    )
+
+                    # -----------------------------------------
+                    # ASPECT SPLADE
+                    # -----------------------------------------
+
+                    aspect_sparse_results = (
+                        self.sparse_search.search(
+                            aspect_query,
+                            RETRIEVAL_TOP_K
+                        )
+                    )
+
+                    all_splade_results.extend(
+                        aspect_sparse_results
+                    )
+
+                    # -----------------------------------------
+                    # ASPECT CANDIDATE POOL
+                    # -----------------------------------------
+
+                    aspect_candidate_pool = []
+
+                    aspect_seen = set()
+
+                    for item in (
+                        aspect_semantic_results
+                        + aspect_keyword_results
+                        + aspect_sparse_results
+                    ):
+
+                        key = (
+                            item.get("page"),
+                            item.get(
+                                "text",
+                                ""
+                            )
+                        )
+
+                        if key not in aspect_seen:
+
+                            aspect_seen.add(
+                                key
+                            )
+
+                            aspect_candidate_pool.append(
+                                item
+                            )
+
+                    logger.info(
+                        "Aspect candidate pool created | "
+                        f"Aspect={aspect_query} | "
+                        f"Candidates="
+                        f"{len(aspect_candidate_pool)}"
+                    )
+
+                    if not aspect_candidate_pool:
+                        continue
+
+                    # -----------------------------------------
+                    # ASPECT RERANK
+                    # -----------------------------------------
+
+                    aspect_reranked = (
+                        self.reranker.rerank(
+                            aspect_query,
+                            aspect_candidate_pool,
+                            RERANK_TOP_K
+                        )
+                    )
+
+                    logger.info(
+                        "Aspect reranking complete | "
+                        f"Aspect={aspect_query} | "
+                        f"TopK="
+                        f"{len(aspect_reranked)}"
+                    )
+
+                    # -----------------------------------------
+                    # TABLE HANDLING
+                    # -----------------------------------------
+
+                    if self._is_table_query(
+                        aspect_query
+                    ):
+
+                        table_results = (
+                            self._reconstruct_tables(
+                                aspect_candidate_pool
+                            )
+                        )
+
+                        if table_results:
+
+                            aspect_reranked = (
+                                self.reranker.rerank(
+                                    aspect_query,
+                                    table_results,
+                                    len(table_results)
+                                )
+                            )
+
+                            logger.info(
+                                "Aspect table query detected | "
+                                f"Aspect={aspect_query} | "
+                                f"Rows="
+                                f"{len(table_results)}"
+                            )
+
+                    # -----------------------------------------
+                    # KEEP BEST EVIDENCE FOR THIS ASPECT
+                    # -----------------------------------------
+                    #
+                    # Keep up to 2 chunks per aspect.
+                    # This provides enough evidence for the
+                    # generator without flooding the context.
+                    #
+                    # -----------------------------------------
+
+                    # -----------------------------------------
+                    # KEEP BEST EVIDENCE FOR THIS ASPECT
+                    # -----------------------------------------
+                    #
+                    # Keep up to 2 chunks per aspect.
+                    #
+                    # IMPORTANT:
+                    # The same chunk may legitimately support
+                    # different aspects. Therefore the aspect
+                    # is part of the deduplication key.
+                    # -----------------------------------------
+
+                    aspect_selected = 0
+
+                    for item in aspect_reranked:
+
+                        if aspect_selected >= 2:
+                            break
+
+                        aspect_key = (
+                            item.get("page"),
+                            item.get(
+                                "text",
+                                ""
+                            ),
+                            aspect_query,
+                        )
+
+                        if aspect_key in seen_result_keys:
+                            continue
+
+                        seen_result_keys.add(
+                            aspect_key
+                        )
+
+                        item_copy = dict(
+                            item
+                        )
+
+                        item_copy[
+                            "aspect_query"
+                        ] = aspect_query
+
+                        combined_results.append(
+                            item_copy
+                        )
+
+                        aspect_selected += 1
+
+                        # ---------------------------------------------
+                        # FINAL MULTI-ASPECT EVIDENCE
+                        # ---------------------------------------------
+
+                        reranked_results = (
+                            combined_results
+                        )
+
+                # ---------------------------------------------
+                # FALLBACK
+                # ---------------------------------------------
+                #
+                # If aspect retrieval produced nothing,
+                # fall back to the original question.
+                #
+                # ---------------------------------------------
+
+                if not reranked_results:
+
+                    logger.warning(
+                        "Aspect-aware retrieval returned "
+                        "no evidence; using fallback retrieval"
+                    )
+
+                    query_embedding = (
+                        self.embedding_service.embed(
+                            question
+                        )
+                    )
+
+                    semantic_results = (
+                        self.vector_store.search(
+                            query_embedding,
+                            RETRIEVAL_TOP_K
+                        )
+                    )
+
+                    keyword_results = (
+                        self.keyword_search.search(
+                            question,
+                            RETRIEVAL_TOP_K
+                        )
+                    )
+
+                    sparse_results = (
+                        self.sparse_search.search(
+                            question,
+                            RETRIEVAL_TOP_K
+                        )
+                    )
+
+                    fallback_pool = []
+
+                    fallback_seen = set()
+
+                    for item in (
+                        semantic_results
+                        + keyword_results
+                        + sparse_results
+                    ):
+
+                        key = (
+                            item.get("page"),
+                            item.get(
+                                "text",
+                                ""
+                            )
+                        )
+
+                        if key not in fallback_seen:
+
+                            fallback_seen.add(
+                                key
+                            )
+
+                            fallback_pool.append(
+                                item
+                            )
+
+                    reranked_results = (
+                        self.reranker.rerank(
+                            question,
+                            fallback_pool,
+                            RERANK_TOP_K
+                        )
+                    )
+
+                    logger.info(
+                        "Fallback retrieval complete | "
+                        f"Candidates="
+                        f"{len(fallback_pool)} | "
+                        f"TopK="
+                        f"{len(reranked_results)}"
+                    )
+
+                # ---------------------------------------------
+                # RETURN RAW RESULTS FOR COMPATIBILITY
+                # ---------------------------------------------
+
+                semantic_results = (
+                    all_faiss_results
+                )
+
+                keyword_results = (
+                    all_bm25_results
+                )
+
+                sparse_results = (
+                    all_splade_results
+                )
+
+                candidate_pool = (
+                    list(
+                        {
+                            (
+                                item.get("page"),
+                                item.get(
+                                    "text",
+                                    ""
+                                )
+                            ): item
+                            for item in (
+                                semantic_results
+                                + keyword_results
+                                + sparse_results
+                            )
+                        }.values()
+                    )
+                )
+
+                logger.info(
+                    "Multi-aspect evidence assembled | "
+                    f"Aspects="
+                    f"{len(aspect_queries)} | "
+                    f"Evidence="
+                    f"{len(reranked_results)}"
+                )
+
+            # =================================================
             # GENERATE FINAL ANSWER
-            print(
-                f"\nGenerating final answer using "
-                f"{len(reranked_results)} "
-                "re-ranked results..."
-            )
+            # =================================================
 
             logger.info(
                 "Generating final answer | "
@@ -706,26 +1328,6 @@ class RAGPipeline:
             logger.info(
                 "Final answer generated successfully"
             )
-            # DISPLAY FINAL ANSWER
-            print(
-                "\n"
-            )
-
-            print(
-                "=" * 60
-            )
-
-            print(
-                "FINAL RAG ANSWER"
-            )
-
-            print(
-                "=" * 60
-            )
-
-            print(
-                final_answer
-            )
 
             logger.info(
                 "Query completed successfully"
@@ -733,7 +1335,9 @@ class RAGPipeline:
 
             return {
                 "answer": final_answer,
-                "candidate_count": len(candidate_pool),
+                "candidate_count": len(
+                    candidate_pool
+                ),
                 "reranked_results": reranked_results,
                 "faiss_results": semantic_results,
                 "bm25_results": keyword_results,

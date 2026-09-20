@@ -11,6 +11,9 @@ def get_logger(
     """
     Create a unique log file for each application run.
 
+    Detailed INFO/DEBUG logs are written to the log file.
+    Only WARNING/ERROR/CRITICAL messages are shown in the console.
+
     Log directory:
         data/logs/
 
@@ -37,11 +40,11 @@ def get_logger(
         return logger
 
     logger.setLevel(
-        logging.INFO
+        logging.DEBUG
     )
 
     # -------------------------------------------------
-    # Generate meaningful unique filename
+    # Generate unique log filename
     # -------------------------------------------------
 
     timestamp = datetime.now().strftime(
@@ -77,6 +80,7 @@ def get_logger(
     # -------------------------------------------------
     # File handler
     # -------------------------------------------------
+    # Keep detailed technical information in the file.
 
     file_handler = logging.FileHandler(
         log_path,
@@ -94,13 +98,14 @@ def get_logger(
     # -------------------------------------------------
     # Console handler
     # -------------------------------------------------
+    # Only show important warnings/errors in terminal.
 
     console_handler = (
         logging.StreamHandler()
     )
 
     console_handler.setLevel(
-        logging.INFO
+        logging.WARNING
     )
 
     console_handler.setFormatter(
@@ -119,11 +124,11 @@ def get_logger(
         console_handler
     )
 
-    # Prevent messages from being
-    # duplicated by the root logger.
+    # Prevent duplicate output through root logger.
     logger.propagate = False
 
-    # Useful startup entry.
+    # Startup information goes to the log file,
+    # but will NOT appear in the manager-facing terminal.
     logger.info(
         "Log file created | "
         f"File={log_filename} | "

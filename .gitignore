@@ -29,3 +29,10 @@ logs/
 # OS files
 .DS_Store
 Thumbs.db
+# React / Vite
+frontend/node_modules/
+frontend/dist/
+
+# Generated load-test results
+load_test_results_*.csv
+load_test_results_*.json
