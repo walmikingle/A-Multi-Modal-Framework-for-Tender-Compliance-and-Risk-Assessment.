@@ -39,6 +39,7 @@ from app.sparse_search import SparseSearch
 from app.reranker import Reranker
 from app.generator import Generator
 from app.logger import logger
+from app.query_planner import plan_query
 
 
 # ============================================================
@@ -65,16 +66,10 @@ def get_test_pdfs():
 
             number = int(match.group(1))
 
-            if 2 <= number <= 11:
+            if 1 <= number <= 13:
                 pdfs.append(pdf)
 
     def sort_key(path):
-
-        if path.name == "25f2785.pdf":
-            return (0, 0)
-
-        if path.name == "NOC26062026.pdf":
-            return (1, 0)
 
         number = int(
             re.search(

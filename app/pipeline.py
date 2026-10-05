@@ -31,6 +31,7 @@ from .vector_store import VectorStore
 from .generator import Generator
 from .sparse_search import SparseSearch
 from .logger import logger
+from .query_planner import plan_query
 
 
 class RAGPipeline:
@@ -720,6 +721,32 @@ class RAGPipeline:
         )
 
         try:
+
+            # ------------------------------------------------
+            # QUERY PLANNER
+            # ------------------------------------------------
+
+            query_plan = plan_query(question)
+
+            logger.info(
+                "Query plan generated | "
+                f"intent={query_plan.intent} | "
+                f"scope={query_plan.scope} | "
+                f"operation={query_plan.operation} | "
+                f"metric={query_plan.metric} | "
+                f"explicit_documents={query_plan.explicit_documents} | "
+                f"retrieval_variants={len(query_plan.retrieval_variants)}"
+            )
+
+            print(
+                f"\n[QUERY PLAN] "
+                f"intent={query_plan.intent} | "
+                f"scope={query_plan.scope} | "
+                f"operation={query_plan.operation} | "
+                f"metric={query_plan.metric} | "
+                f"explicit_documents={query_plan.explicit_documents} | "
+                f"variants={len(query_plan.retrieval_variants)}"
+            )
 
             # ------------------------------------------------
             # QUERY ASPECTS
