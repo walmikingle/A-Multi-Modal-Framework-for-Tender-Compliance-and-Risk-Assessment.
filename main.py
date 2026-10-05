@@ -92,6 +92,9 @@ def terminate_process(process):
 # Start backend
 # ============================================================
 
+# ============================================================
+# Start backend
+# ============================================================
 def start_backend():
     print("[1/2] Starting FastAPI backend...")
 
@@ -123,24 +126,44 @@ def start_backend():
 
     processes.append(process)
 
-    # Give Uvicorn a moment to initialize.
-    for _ in range(60):
+    # Allow more time because importing Torch,
+    # SentenceTransformers, Docling, etc. can be slow.
+    timeout_seconds = 120
+    start_time = time.time()
+
+    while time.time() - start_time < timeout_seconds:
+
+        # Backend process crashed/exited
         if process.poll() is not None:
             print()
             print("ERROR: FastAPI process exited unexpectedly.")
             print(f"Exit code: {process.returncode}")
             return False
 
+        # Backend is listening
         if port_is_open(BACKEND_HOST, BACKEND_PORT):
             print("      Backend ready.")
             print(f"      {BACKEND_URL}")
             return True
 
+        elapsed = int(time.time() - start_time)
+
+        # Show progress every 5 seconds
+        if elapsed > 0 and elapsed % 5 == 0:
+            print(
+                f"      Waiting for backend... "
+                f"{elapsed}/{timeout_seconds} sec"
+            )
+
         time.sleep(0.5)
 
     print()
-    print("ERROR: FastAPI did not become ready within 30 seconds.")
+    print(
+        f"ERROR: FastAPI did not become ready "
+        f"within {timeout_seconds} seconds."
+    )
     print(f"Process status: {process.poll()}")
+
     return False
 # ============================================================
 # Start frontend
