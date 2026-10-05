@@ -1072,6 +1072,42 @@ class MultiDocumentPipeline:
             )
 
         # ----------------------------------------------------
+        # RETRIEVAL QUERY EXPANSION
+        # ----------------------------------------------------
+        # Build retrieval query list for each aspect:
+        # - canonical aspect_query (always first)
+        # - up to 4 planner retrieval variants for comparison/metric questions
+        # This expands recall while preserving the canonical query for reranking.
+
+        def _get_retrieval_queries(aspect_query, query_plan):
+            """Build list of retrieval queries for an aspect."""
+            queries = [aspect_query]  # canonical always first
+
+            # Only expand for comparison/metric-driven questions
+            if query_plan.operation in ("max", "min", "compare") and query_plan.metric:
+                # Use planner variants (skip the original question which is already covered)
+                for variant in query_plan.retrieval_variants:
+                    if variant != aspect_query and variant != question:
+                        queries.append(variant)
+                        if len(queries) >= 5:  # max 5 total (1 canonical + 4 variants)
+                            break
+
+            return queries
+
+        # Pre-compute retrieval queries for each aspect
+        aspect_retrieval_queries = {}
+        for aspect_query in aspect_queries:
+            aspect_retrieval_queries[aspect_query] = _get_retrieval_queries(aspect_query, query_plan)
+
+        # Debug output
+        print("\n--- Retrieval Query Expansion ---")
+        for aspect_query, queries in aspect_retrieval_queries.items():
+            print(f"  Aspect: {aspect_query}")
+            for i, q in enumerate(queries):
+                label = "canonical" if i == 0 else f"variant {i}"
+                print(f"    [{label}] {q}")
+
+        # ----------------------------------------------------
         # ASPECT-AWARE RETRIEVAL + RERANKING
         # ----------------------------------------------------
 
@@ -1107,125 +1143,132 @@ class MultiDocumentPipeline:
                     f"{aspect_query}"
                 )
 
-                # One dense embedding per aspect.
-                aspect_embedding = (
-                    self.embedding_service.embed(
-                        aspect_query
-                    )
-                )
+                # Get retrieval queries for this aspect (canonical + variants)
+                retrieval_queries = aspect_retrieval_queries[aspect_query]
 
-                # --------------------------------------------
-                # EACH REQUESTED DOCUMENT
-                # --------------------------------------------
+                # Print retrieval queries for this aspect
+                for query_idx, retrieval_query in enumerate(retrieval_queries):
+                    label = "canonical" if query_idx == 0 else f"variant {query_idx}"
+                    print(
+                        f"  Retrieval query [{label}]: {retrieval_query}"
+                    )
+
+                # ------------------------------------------------
+                # EACH REQUESTED DOCUMENT (separate reranking per document)
+                # ------------------------------------------------
 
                 for document in requested_documents:
 
                     print(
-                        f"  Document: "
-                        f"{document}"
+                        f"  Document: {document}"
                     )
 
-                    # ----------------------------------------
-                    # FAISS
-                    # ----------------------------------------
+                    # Accumulate candidates across all retrieval queries for THIS document
+                    doc_all_semantic = []
+                    doc_all_keyword = []
+                    doc_all_sparse = []
 
-                    document_vector_store = (
-                        self._get_document_vector_store(
-                            document
+                    # --------------------------------------------
+                    # EACH RETRIEVAL QUERY FOR THIS ASPECT
+                    # --------------------------------------------
+
+                    for retrieval_query in retrieval_queries:
+
+                        # Dense embedding for this retrieval query
+                        query_embedding = (
+                            self.embedding_service.embed(
+                                retrieval_query
+                            )
                         )
-                    )
 
-                    semantic_results = (
-                        document_vector_store.search(
-                            aspect_embedding,
-                            scoped_retrieval_k,
+                        # ----------------------------------------
+                        # FAISS
+                        # ----------------------------------------
+
+                        document_vector_store = (
+                            self._get_document_vector_store(
+                                document
+                            )
                         )
-                    )
 
-                    # ----------------------------------------
-                    # BM25
-                    # ----------------------------------------
-
-                    document_keyword_search = (
-                        self._get_document_keyword_search(
-                            document
+                        semantic_results = (
+                            document_vector_store.search(
+                                query_embedding,
+                                scoped_retrieval_k,
+                            )
                         )
-                    )
 
-                    keyword_results = (
-                        document_keyword_search.search(
-                            aspect_query,
-                            scoped_retrieval_k,
+                        # ----------------------------------------
+                        # BM25
+                        # ----------------------------------------
+
+                        document_keyword_search = (
+                            self._get_document_keyword_search(
+                                document
+                            )
                         )
-                    )
 
-                    # ----------------------------------------
-                    # SPLADE
-                    # ----------------------------------------
-
-                    sparse_results = (
-                        self._search_sparse_scoped(
-                            aspect_query,
-                            [document],
-                            scoped_retrieval_k,
+                        keyword_results = (
+                            document_keyword_search.search(
+                                retrieval_query,
+                                scoped_retrieval_k,
+                            )
                         )
-                    )
 
-                    all_faiss_results.extend(
-                        semantic_results
-                    )
-                    all_keyword_results.extend(
-                        keyword_results
-                    )
-                    all_sparse_results.extend(
-                        sparse_results
-                    )
+                        # ----------------------------------------
+                        # SPLADE
+                        # ----------------------------------------
+
+                        sparse_results = (
+                            self._search_sparse_scoped(
+                                retrieval_query,
+                                [document],
+                                scoped_retrieval_k,
+                            )
+                        )
+
+                        doc_all_semantic.extend(semantic_results)
+                        doc_all_keyword.extend(keyword_results)
+                        doc_all_sparse.extend(sparse_results)
+
+                    all_faiss_results.extend(doc_all_semantic)
+                    all_keyword_results.extend(doc_all_keyword)
+                    all_sparse_results.extend(doc_all_sparse)
 
                     # ----------------------------------------
-                    # COMBINE CANDIDATES
+                    # COMBINE CANDIDATES FOR THIS DOCUMENT
                     # ----------------------------------------
 
-                    aspect_candidate_pool = []
-                    aspect_seen = set()
+                    doc_candidate_pool = []
+                    doc_seen = set()
 
                     for item in (
-                        semantic_results
-                        + keyword_results
-                        + sparse_results
+                        doc_all_semantic
+                        + doc_all_keyword
+                        + doc_all_sparse
                     ):
 
                         key = (
-                            item.get(
-                                "document"
-                            ),
-                            item.get(
-                                "page"
-                            ),
-                            item.get(
-                                "type"
-                            ),
-                            item.get(
-                                "text",
-                                "",
-                            ),
+                            item.get("document"),
+                            item.get("page"),
+                            item.get("type"),
+                            item.get("text", ""),
                         )
 
-                        if key not in aspect_seen:
-
-                            aspect_seen.add(
-                                key
-                            )
-
-                            aspect_candidate_pool.append(
-                                item
-                            )
+                        if key not in doc_seen:
+                            doc_seen.add(key)
+                            doc_candidate_pool.append(item)
 
                     print(
-                        f"    Aspect candidates: "
-                        f"{len(aspect_candidate_pool)}"
+                        f"    Aspect candidates (total raw): "
+                        f"{len(doc_all_semantic) + len(doc_all_keyword) + len(doc_all_sparse)}"
+                    )
+                    print(
+                        f"    Aspect candidates (deduplicated): "
+                        f"{len(doc_candidate_pool)}"
                     )
 
-                    if not aspect_candidate_pool:
+                    if not doc_candidate_pool:
 
                         print(
                             "    No candidates found."
@@ -1236,68 +1279,48 @@ class MultiDocumentPipeline:
                     # ----------------------------------------
                     # RERANK
                     # ----------------------------------------
+                    # IMPORTANT: Rerank using the CANONICAL aspect_query,
+                    # not the variant queries. This preserves generator semantics.
 
-                    aspect_results = (
+                    doc_results = (
                         self.reranker.rerank(
                             aspect_query,
-                            aspect_candidate_pool,
+                            doc_candidate_pool,
                             min(
                                 RERANK_TOP_K,
-                                len(
-                                    aspect_candidate_pool
-                                ),
+                                len(doc_candidate_pool),
                             ),
                         )
                     )
 
                     # ----------------------------------------
-                    # KEEP BEST EVIDENCE FOR THIS
-                    # DOCUMENT + ASPECT
+                    # KEEP BEST EVIDENCE FOR THIS DOCUMENT + ASPECT
                     # ----------------------------------------
 
-                    if aspect_results:
+                    if doc_results:
 
-                        item = dict(
-                            aspect_results[0]
-                        )
+                        item = dict(doc_results[0])
 
                         key = (
-                            item.get(
-                                "document"
-                            ),
-                            item.get(
-                                "page"
-                            ),
-                            item.get(
-                                "type"
-                            ),
-                            item.get(
-                                "text",
-                                "",
-                            ),
+                            item.get("document"),
+                            item.get("page"),
+                            item.get("type"),
+                            item.get("text", ""),
                         )
 
                         if key not in seen_result_keys:
 
-                            seen_result_keys.add(
-                                key
-                            )
+                            seen_result_keys.add(key)
 
-                            item[
-                                "aspect_query"
-                            ] = aspect_query
+                            item["aspect_query"] = aspect_query
 
-                            combined_results.append(
-                                item
-                            )
+                            combined_results.append(item)
 
                             print(
                                 f"    Selected: "
                                 f"{document} -> "
-                                f"Page "
-                                f"{item.get('page')} | "
-                                f"Score: "
-                                f"{item.get('rerank_score', 0):.4f}"
+                                f"Page {item.get('page')} | "
+                                f"Score: {item.get('rerank_score', 0):.4f}"
                             )
 
         else:
@@ -1318,54 +1341,71 @@ class MultiDocumentPipeline:
                     f"{aspect_query}"
                 )
 
-                aspect_embedding = (
-                    self.embedding_service.embed(
-                        aspect_query
+                # Get retrieval queries for this aspect (canonical + variants)
+                retrieval_queries = aspect_retrieval_queries[aspect_query]
+
+                # Accumulate candidates across all retrieval queries for this aspect
+                aspect_all_semantic = []
+                aspect_all_keyword = []
+                aspect_all_sparse = []
+
+                # ------------------------------------------------
+                # EACH RETRIEVAL QUERY FOR THIS ASPECT
+                # ------------------------------------------------
+
+                for query_idx, retrieval_query in enumerate(retrieval_queries):
+                    label = "canonical" if query_idx == 0 else f"variant {query_idx}"
+                    print(
+                        f"  Retrieval query [{label}]: {retrieval_query}"
                     )
-                )
 
-                # --------------------------------------------
-                # FAISS
-                # --------------------------------------------
-
-                semantic_results = (
-                    self.vector_store.search(
-                        aspect_embedding,
-                        scoped_retrieval_k,
+                    # Dense embedding for this retrieval query
+                    query_embedding = (
+                        self.embedding_service.embed(
+                            retrieval_query
+                        )
                     )
-                )
 
-                # --------------------------------------------
-                # BM25
-                # --------------------------------------------
+                    # --------------------------------------------
+                    # FAISS
+                    # --------------------------------------------
 
-                keyword_results = (
-                    self.keyword_search.search(
-                        aspect_query,
-                        scoped_retrieval_k,
+                    semantic_results = (
+                        self.vector_store.search(
+                            query_embedding,
+                            scoped_retrieval_k,
+                        )
                     )
-                )
 
-                # --------------------------------------------
-                # SPLADE
-                # --------------------------------------------
+                    # --------------------------------------------
+                    # BM25
+                    # --------------------------------------------
 
-                sparse_results = (
-                    self.sparse_search.search(
-                        aspect_query,
-                        scoped_retrieval_k,
+                    keyword_results = (
+                        self.keyword_search.search(
+                            retrieval_query,
+                            scoped_retrieval_k,
+                        )
                     )
-                )
 
-                all_faiss_results.extend(
-                    semantic_results
-                )
-                all_keyword_results.extend(
-                    keyword_results
-                )
-                all_sparse_results.extend(
-                    sparse_results
-                )
+                    # --------------------------------------------
+                    # SPLADE
+                    # --------------------------------------------
+
+                    sparse_results = (
+                        self.sparse_search.search(
+                            retrieval_query,
+                            scoped_retrieval_k,
+                        )
+                    )
+
+                    aspect_all_semantic.extend(semantic_results)
+                    aspect_all_keyword.extend(keyword_results)
+                    aspect_all_sparse.extend(sparse_results)
+
+                all_faiss_results.extend(aspect_all_semantic)
+                all_keyword_results.extend(aspect_all_keyword)
+                all_sparse_results.extend(aspect_all_sparse)
 
                 # --------------------------------------------
                 # COMBINE GLOBAL CANDIDATES
@@ -1375,9 +1415,9 @@ class MultiDocumentPipeline:
                 candidate_seen = set()
 
                 for item in (
-                    semantic_results
-                    + keyword_results
-                    + sparse_results
+                    aspect_all_semantic
+                    + aspect_all_keyword
+                    + aspect_all_sparse
                 ):
 
                     key = (
@@ -1407,9 +1447,19 @@ class MultiDocumentPipeline:
                         )
 
                 print(
-                    f"    Global candidates: "
+                    f"    Global candidates (total raw): "
+                    f"{len(aspect_all_semantic) + len(aspect_all_keyword) + len(aspect_all_sparse)}"
+                )
+                print(
+                    f"    Global candidates (deduplicated): "
                     f"{len(candidate_pool)}"
                 )
+                if candidate_pool:
+                    unique_docs = set(item.get("document") for item in candidate_pool if item.get("document"))
+                    print(
+                        f"    Unique documents in pool: {len(unique_docs)} "
+                        f"({', '.join(sorted(unique_docs))})"
+                    )
 
                 if not candidate_pool:
 
@@ -1422,6 +1472,8 @@ class MultiDocumentPipeline:
                 # --------------------------------------------
                 # GLOBAL RERANK
                 # --------------------------------------------
+                # IMPORTANT: Rerank using the CANONICAL aspect_query,
+                # not the variant queries. This preserves generator semantics.
 
                 aspect_results = (
                     self.reranker.rerank(
