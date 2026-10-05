@@ -55,13 +55,6 @@ def get_test_pdfs():
 
         name = pdf.name
 
-        if name in {
-            "25f2785.pdf",
-            "NOC26062026.pdf",
-        }:
-            pdfs.append(pdf)
-            continue
-
         match = re.fullmatch(
             r"Tendernotice_(\d+)\.pdf",
             name,
@@ -90,7 +83,7 @@ def get_test_pdfs():
             ).group(1)
         )
 
-        return (2, number)
+        return (0, number)
 
     return sorted(pdfs, key=sort_key)
 
@@ -1011,6 +1004,32 @@ class MultiDocumentPipeline:
         logger.info(
             "Multi-document query received | "
             f"Question={question}"
+        )
+
+        # ----------------------------------------------------
+        # QUERY PLANNER
+        # ----------------------------------------------------
+
+        query_plan = plan_query(question)
+
+        logger.info(
+            "Query plan generated | "
+            f"intent={query_plan.intent} | "
+            f"scope={query_plan.scope} | "
+            f"operation={query_plan.operation} | "
+            f"metric={query_plan.metric} | "
+            f"explicit_documents={query_plan.explicit_documents} | "
+            f"retrieval_variants={len(query_plan.retrieval_variants)}"
+        )
+
+        print(
+            f"\n[QUERY PLAN] "
+            f"intent={query_plan.intent} | "
+            f"scope={query_plan.scope} | "
+            f"operation={query_plan.operation} | "
+            f"metric={query_plan.metric} | "
+            f"explicit_documents={query_plan.explicit_documents} | "
+            f"variants={len(query_plan.retrieval_variants)}"
         )
 
         # ----------------------------------------------------
