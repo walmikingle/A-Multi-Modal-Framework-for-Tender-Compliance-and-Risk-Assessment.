@@ -1470,59 +1470,213 @@ class MultiDocumentPipeline:
                     continue
 
                 # --------------------------------------------
-                # GLOBAL RERANK
+                # COMPARISON DOCUMENT COVERAGE
                 # --------------------------------------------
-                # IMPORTANT: Rerank using the CANONICAL aspect_query,
-                # not the variant queries. This preserves generator semantics.
-
-                aspect_results = (
-                    self.reranker.rerank(
-                        aspect_query,
-                        candidate_pool,
-                        min(
-                            RERANK_TOP_K,
-                            len(
-                                candidate_pool
-                            ),
-                        ),
-                    )
+                # For comparison + all_documents: preserve evidence from
+                # multiple documents by reranking per document instead of
+                # globally truncating to top 2.
+                is_comparison_all_docs = (
+                    query_plan.intent == "comparison"
+                    and query_plan.scope == "all_documents"
                 )
 
-                # Keep the strongest two results for a
-                # non-document-scoped aspect.
-                for result in aspect_results[:2]:
-
-                    item = dict(result)
-
-                    key = (
-                        item.get(
-                            "document"
-                        ),
-                        item.get(
-                            "page"
-                        ),
-                        item.get(
-                            "type"
-                        ),
-                        item.get(
-                            "text",
-                            "",
-                        ),
+                if is_comparison_all_docs:
+                    print(
+                        "\n--- COMPARISON DOCUMENT COVERAGE ---"
                     )
 
-                    if key not in seen_result_keys:
+                    # Partition candidates by document
+                    candidates_by_doc = {}
+                    for item in candidate_pool:
+                        doc_name = item.get("document")
+                        if doc_name:
+                            candidates_by_doc.setdefault(doc_name, []).append(item)
 
-                        seen_result_keys.add(
-                            key
+                    loaded_docs = [pdf.name for pdf in self.pdf_paths]
+                    expected_docs = len(loaded_docs)
+                    represented_docs = list(candidates_by_doc.keys())
+                    missing_docs = [d for d in loaded_docs if d not in candidates_by_doc]
+
+                    print(
+                        f"Expected documents: {expected_docs}"
+                    )
+                    print(
+                        f"Documents represented by global retrieval: {len(represented_docs)}"
+                    )
+                    if missing_docs:
+                        print(
+                            f"Missing documents before fallback: {missing_docs}"
+                        )
+                    else:
+                        print(
+                            f"Missing documents before fallback: []"
                         )
 
-                        item[
-                            "aspect_query"
-                        ] = aspect_query
+                    # For each document: rerank and select up to 2
+                    fallback_docs_retrieved = []
 
-                        combined_results.append(
-                            item
+                    for doc_name in loaded_docs:
+                        doc_candidates = candidates_by_doc.get(doc_name, [])
+
+                        if not doc_candidates:
+                            # Fallback scoped retrieval for missing document
+                            print(
+                                f"  Fallback retrieval for missing document: {doc_name}"
+                            )
+                            fallback_docs_retrieved.append(doc_name)
+
+                            # Accumulate fallback candidates across retrieval queries
+                            fb_all_semantic = []
+                            fb_all_keyword = []
+                            fb_all_sparse = []
+
+                            for retrieval_query in retrieval_queries:
+                                # Dense embedding
+                                fb_embedding = self.embedding_service.embed(retrieval_query)
+
+                                # FAISS
+                                doc_store = self._get_document_vector_store(doc_name)
+                                fb_semantic = doc_store.search(fb_embedding, scoped_retrieval_k)
+
+                                # BM25
+                                doc_kw_search = self._get_document_keyword_search(doc_name)
+                                fb_keyword = doc_kw_search.search(retrieval_query, scoped_retrieval_k)
+
+                                # SPLADE
+                                fb_sparse = self._search_sparse_scoped(
+                                    retrieval_query,
+                                    [doc_name],
+                                    scoped_retrieval_k,
+                                )
+
+                                fb_all_semantic.extend(fb_semantic)
+                                fb_all_keyword.extend(fb_keyword)
+                                fb_all_sparse.extend(fb_sparse)
+
+                            # Deduplicate fallback candidates
+                            fb_seen = set()
+                            fb_pool = []
+                            for item in (
+                                fb_all_semantic
+                                + fb_all_keyword
+                                + fb_all_sparse
+                            ):
+                                key = (
+                                    item.get("document"),
+                                    item.get("page"),
+                                    item.get("type"),
+                                    item.get("text", ""),
+                                )
+                                if key not in fb_seen:
+                                    fb_seen.add(key)
+                                    fb_pool.append(item)
+
+                            doc_candidates = fb_pool
+
+                        # Rerank this document's candidates using CANONICAL aspect_query
+                        if doc_candidates:
+                            doc_results = self.reranker.rerank(
+                                aspect_query,
+                                doc_candidates,
+                                min(2, len(doc_candidates)),  # up to 2 per document
+                            )
+
+                            # Select up to 2 evidence items for this document
+                            for result in doc_results[:2]:
+                                item = dict(result)
+                                key = (
+                                    item.get("document"),
+                                    item.get("page"),
+                                    item.get("type"),
+                                    item.get("text", ""),
+                                )
+                                if key not in seen_result_keys:
+                                    seen_result_keys.add(key)
+                                    item["aspect_query"] = aspect_query
+                                    combined_results.append(item)
+
+                                    print(
+                                        f"  Document: {doc_name} | "
+                                        f"Page {item.get('page')} | "
+                                        f"Score: {item.get('rerank_score', 0):.4f}"
+                                    )
+
+                    if fallback_docs_retrieved:
+                        print(
+                            f"Fallback documents retrieved: {fallback_docs_retrieved}"
                         )
+
+                    print(
+                        f"\nFinal comparison evidence:"
+                    )
+                    final_docs = set(item.get("document") for item in combined_results if item.get("document"))
+                    print(
+                        f"  Document coverage: {len(final_docs)} / {expected_docs}"
+                    )
+                    print(
+                        f"  Final evidence items: {len(combined_results)}"
+                    )
+                    for item in combined_results:
+                        doc = item.get("document")
+                        pg = item.get("page")
+                        sc = item.get("rerank_score", 0)
+                        print(f"    {doc} | Page {pg} | Score: {sc:.4f}")
+
+                else:
+                    # --------------------------------------------
+                    # GLOBAL RERANK (normal behavior)
+                    # --------------------------------------------
+                    # IMPORTANT: Rerank using the CANONICAL aspect_query,
+                    # not the variant queries. This preserves generator semantics.
+
+                    aspect_results = (
+                        self.reranker.rerank(
+                            aspect_query,
+                            candidate_pool,
+                            min(
+                                RERANK_TOP_K,
+                                len(
+                                    candidate_pool
+                                ),
+                            ),
+                        )
+                    )
+
+                    # Keep the strongest two results for a
+                    # non-document-scoped aspect.
+                    for result in aspect_results[:2]:
+
+                        item = dict(result)
+
+                        key = (
+                            item.get(
+                                "document"
+                            ),
+                            item.get(
+                                "page"
+                            ),
+                            item.get(
+                                "type"
+                            ),
+                            item.get(
+                                "text",
+                                "",
+                            ),
+                        )
+
+                        if key not in seen_result_keys:
+
+                            seen_result_keys.add(
+                                key
+                            )
+
+                            item[
+                                "aspect_query"
+                            ] = aspect_query
+
+                            combined_results.append(
+                                item
+                            )
 
         # ----------------------------------------------------
         # FINAL EVIDENCE
