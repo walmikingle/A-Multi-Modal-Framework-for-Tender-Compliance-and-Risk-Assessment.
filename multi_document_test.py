@@ -691,12 +691,23 @@ class MultiDocumentPipeline:
 
 
     def _detect_document_scope(self, question):
+        """Detect explicitly referenced documents with exact token matching.
+
+        Uses word-boundary-aware regex to avoid substring false positives
+        (e.g., Tendernotice_1 matching Tendernotice_10).
+        """
         question_lower = question.lower()
         matched_documents = []
         for pdf in self.pdf_paths:
             filename = pdf.name.lower()
             stem = pdf.stem.lower()
-            if filename in question_lower or stem in question_lower:
+            # Exact match with word boundaries for filename or stem
+            # \b matches word boundaries; need to escape special regex chars
+            filename_escaped = re.escape(filename)
+            stem_escaped = re.escape(stem)
+            # Check for filename or stem as whole tokens
+            if (re.search(rf'\b{filename_escaped}\b', question_lower) or
+                re.search(rf'\b{stem_escaped}\b', question_lower)):
                 matched_documents.append(pdf.name)
         return matched_documents
 
